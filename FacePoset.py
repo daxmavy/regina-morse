@@ -420,6 +420,8 @@ class FacePoset:
     def keys(self, array):
         return [el.key() for el in array]
 
+yyeet = 1
+
 #fp = FacePoset()
 tri = Triangulation3.fromIsoSig('fLAMcbcbdeehxjqhr')
 fp = FacePoset(triangulation = tri, dim = 3)
