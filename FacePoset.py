@@ -333,7 +333,6 @@ class FacePoset:
             for name, node in self.layers[dimension].items():
                 node.parents, node.irregular_parents = self.separate_duplicates(node.parents)
 
-
     def separate_duplicates(self, array):
         seen = {}
         for x in array:
@@ -385,57 +384,164 @@ class FacePoset:
                         #print 'this is the candidate', node.dim, node.name 
                         found_unmatched_uncritical = True
                     if len(node.parents) == 1 and len(node.irregular_parents) == 0:
-                        #print critical
-                        #print [ el.key() for el in self.layers[dimension].values()]
+                        
                         morse_pairs.append((node.key(), node.parents[0].key()))
                         #print [(node.key(), el.key()) for el in node.parents]
                         self.remove_node(node.parents[0].dim, node.parents[0].name)
                         #print [(node.key(), el.key()) for el in node.parents]
                         self.remove_node(node.dim, node.name)
-                        #except:
-                        #    print critical 
-                        #    print morse_pairs
-                        #    return
+                        
                         match_made = True
             # need to save a candidate for making a cell critical so I don't need to repeat the search
             if found_unmatched_uncritical and not match_made:
                 #make cell critical
-                #print 'this is before deletion', critical_candidate.dim, critical_candidate.name
-                #print 'We are about to make ', critical_candidate.key(), ' critical. Its parents are:'
-                #print self.keys(critical_candidate.parents)
-                #print 'Irregular parents:'
-                #print self.keys(critical_candidate.irregular_parents)
-                #print 'Children:'
-                #print self.keys(critical_candidate.children)
-                #print 'Irregular children:'
-                #print self.keys(critical_candidate.irregular_children)
+                
                 critical.append((critical_candidate.dim, critical_candidate.name))
                 self.remove_node(critical_candidate.dim, critical_candidate.name)
-                #print 'this is the face poset after deletion'
-                #fp.output_poset()
+                
             if not found_unmatched_uncritical:
                 break
         return morse_pairs, critical
 
+    def node_info(self, node):
+        print 'Printing information about node',node.key()
+        print 'Parents:'
+        print self.keys(node.parents)
+        print 'Irregular parents:'
+        print self.keys(node.irregular_parents)
+        print 'Children:'
+        print self.keys(node.children)
+        print 'Irregular children:'
+        print self.keys(node.irregular_children)
+
     def keys(self, array):
         return [el.key() for el in array]
 
-yyeet = 1
+    def dual_graph_links(self, dim):
+        """
+        Returns a list of:
+        - single edges
+        - multi-edges
+        - hyperlinks between multiple nodes
+        - loops
+
+        in the hypergraph representation of the dual dim-dimensional graph of the given FacePoset.
+
+        the representation for a link in the hypergraph is ([n1_key, n2_key, ...], edge_key), with the keys for the
+        two dim-dimensional nodes n1 and n2 (and so on for some links), and the key for the (dim-1)-dimensional cell which gives the link
+        """
+    
+        links = {  link : [] for _, link in self.layers[dim-1].items() }
+        for link in links:
+            
+            for _, node in self.layers[dim].items():
+                if node in link.parents:
+                    links[link].append(node)
+        
+        return [  ( tuple(sorted([el.key() for el in li])), link.key() ) for link, li in links.items() ]
+
+    def filtered_dual_graph_links(self, dim):
+        links = self.dual_graph_links(dim = dim)
+        singles = []
+        multi_arcs = []
+        loops = []
+        duplicate_arcs = []
+        count = {}
+        for l in links:
+            if len(l[0]) == 1:
+                loops.append(l)
+            elif len(l[0]) > 2:
+                multi_arcs.append(l)
+            if l[0] in count:
+                count[l[0]].append(l)
+            else:
+                count[l[0]] = [l]
+        
+        for key, val in count.items():
+            if len(key) > 1:
+                duplicate_arcs.append(val)
+            elif val not in multi_arcs and val not in loops:
+                singles.append(val)
+        
+        return singles, multi_arcs, loops, duplicate_arcs
+
+
+
+
+
+
+        
+
+
+
+def get_edge_list(triangulation, dim):
+    if dim == 2:
+        FacetPairing = FacetPairing2
+    elif dim == 3:
+        FacetPairing = FacetPairing3
+    elif dim == 4:
+        FacetPairing = FacetPairing4
+    elif dim == 5:
+        FacetPairing = FacetPairing5
+    elif dim == 6:
+        FacetPairing = FacetPairing6
+    elif dim == 7:
+        FacetPairing = FacetPairing7
+    # add the others
+
+    FP = FacetPairing(triangulation)
+    output_li = []
+    string = FP.__str__()
+    str_li = string.split('|')
+    for i, el in enumerate(str_li):
+        li = el.split(' ')
+        for pair in li:
+            if not pair == "":
+                tup = (i, int(pair.split(':')[0]))
+                if tup[0] < tup[1]:
+                    output_li.append((tup[1], tup[0]))
+                else:
+                    output_li.append(tup)
+                
+    count_dict = {}
+    for el in output_li:
+        if el in count_dict:
+            count_dict[el] +=1
+        else:
+            count_dict[el] = 1
+    singles = []
+    multiples = []
+    loops = []
+    for el, count in count_dict.items():
+        if el[0] == el[1]:
+            loops.append(el)
+        elif count == 2:
+            singles.append(el)
+        else:
+            multiples.append(el)
+    return singles, multiples, loops
 
 #fp = FacePoset()
 tri = Triangulation3.fromIsoSig('fLAMcbcbdeehxjqhr')
-fp = FacePoset(triangulation = tri, dim = 3)
-fp.strip_multi_edges()
-fp.output_poset()
+fp = FacePoset(triangulation=tri, dim = 3)
+a,b,c,d =  fp.filtered_dual_graph_links(dim = 3)
+print a
+print b
+print c
+print d
+#FP = FacetPairing3(tri)
+#print fp.output_poset()
+#print FP.__str__()
 
+#fp = FacePoset(triangulation = tri, dim = 3)
+#fp.strip_multi_edges()
+#fp.output_poset()
 
-morse, critical = fp.randomised_morse_matching()
-print 'Morse pairs:'
-print morse
-print 'Critical cells:'
-print critical
-
-
+#morse, critical = fp.randomised_morse_matching()
+#print 'Morse pairs:'
+#print morse
+#print 'Critical cells:'
+#print critical
 
 #fp.add_node(0, 0, 'A')
 #fp.add_node(0, 1, 'B')
@@ -452,10 +558,6 @@ print critical
 
 #n1 = fp.get_node(1,0)
 #print n1.cell
-
-
-
-
 
 ##########################################
 ##########################################
